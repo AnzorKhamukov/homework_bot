@@ -35,7 +35,7 @@ handler = logging.StreamHandler()
 
 
 def check_tokens():
-    """Проверка переменных окружения"""
+    """Проверка переменных окружения."""
     TOKEN_DICT = {
         PRACTICUM_TOKEN: 'PRACTICUM_TOKEN',
         TELEGRAM_TOKEN: 'TELEGRAM_TOKEN',
@@ -50,7 +50,7 @@ def check_tokens():
 
 
 def send_message(bot, message):
-    """Отправка сообщения"""
+    """Отправка сообщения."""
     try:
         bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=message)
         logger.debug(f'Сообщение отправленно: {message}')
@@ -59,7 +59,7 @@ def send_message(bot, message):
 
 
 def get_api_answer(timestamp):
-    """Запрос к серверу"""
+    """Запрос к серверу."""
     timestamp = int(time.time())
     PARAMS = {'from_date': timestamp}
     try:
@@ -82,7 +82,7 @@ def get_api_answer(timestamp):
 
 
 def check_response(response):
-    """Проверяем корректность данных"""
+    """Проверяем корректность данных."""
     try:
         homeworks = response['homeworks']
     except KeyError:
@@ -101,7 +101,7 @@ def check_response(response):
 
 
 def parse_status(homework):
-    """Проверяем статус домашней работы"""
+    """Проверяем статус домашней работы."""
     try:
         homework_name = homework['homework_name']
         homework_status = homework['status']
