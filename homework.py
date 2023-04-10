@@ -4,10 +4,11 @@ import requests
 import telegram
 import time
 import sys
+from http import HTTPStatus
 
 from dotenv import load_dotenv
 
-from exceptions import FailedConnection, FormatError, ParsingError
+from exceptions import FormatError, ParsingError, WrongStatus
 
 load_dotenv()
 
@@ -29,24 +30,16 @@ HOMEWORK_VERDICTS = {
 
 logger = logging.getLogger(__name__)
 formatter = logging.Formatter(
-    '%(asctime)s, %(levelname)s, %(message)s'
+    '%(asctime)s, %(levelname)s, %(message)s, %(funcName)s, %(lineno)d'
 )
 handler = logging.StreamHandler()
+handler.setFormatter(formatter)
+logger.addHandler(handler)
 
 
 def check_tokens():
     """Проверка переменных окружения."""
-    TOKEN_DICT = {
-        PRACTICUM_TOKEN: 'PRACTICUM_TOKEN',
-        TELEGRAM_TOKEN: 'TELEGRAM_TOKEN',
-        TELEGRAM_CHAT_ID: 'TELEGRAM_CHAT_ID'
-    }
-
-    for token in TOKEN_DICT:
-        if token is None:
-            logger.critical('отсутствуют обязательные данные')
-            return False
-        return True
+    return all([PRACTICUM_TOKEN, TELEGRAM_TOKEN, TELEGRAM_CHAT_ID])
 
 
 def send_message(bot, message):
@@ -68,16 +61,18 @@ def get_api_answer(timestamp):
             headers=HEADERS,
             params=PARAMS
         )
-        if response.status_code != 200:
-            logger.error('Сервер не доступен')
-            raise FailedConnection('не удалось подключиться к серверу')
-    except requests.RequestException:
-        logger.error('не удается получить ответ от сервера ЯП')
+        if response.status_code != HTTPStatus.OK:
+            logger.error('Не верный статус')
+            raise WrongStatus('Не найдет необходимый статус')
+    except requests.RequestException as err:
+        logger.error('не удается получить ответ от сервера ЯП', err)
+        raise ConnectionError from err
 
     try:
         response = response.json()
-    except FormatError:
-        logger.error('ошибка формата')
+    except FormatError as err:
+        logger.error('ошибка формата', err)
+        raise FormatError from err
     return response
 
 
@@ -87,9 +82,6 @@ def check_response(response):
         homeworks = response['homeworks']
     except KeyError:
         logger.error('отсутсвтуют ожидаемые ключи')
-    if 'homeworks' not in response:
-        logger.error('нет нужного ключа')
-        raise TypeError
 
     if type(response) != dict:
         raise TypeError
@@ -97,17 +89,24 @@ def check_response(response):
     if type(homeworks) != list:
         logger.error('Получили неверные данные')
         raise TypeError('ошибка в данных')
+    if len(homeworks) == 0:
+        logger.error('Список пуст.')
+        raise ValueError('Полученный список пуст')
     return homeworks
 
 
 def parse_status(homework):
     """Проверяем статус домашней работы."""
     try:
-        homework_name = homework['homework_name']
         homework_status = homework['status']
         verdict = HOMEWORK_VERDICTS[homework_status]
     except ParsingError('не удалось получить статус домашней работы'):
-        logger.error('ParsingError')
+        logger.error('не удалось получить статус домашней работы')
+    try:
+        homework_name = homework['homework_name']
+    except ParsingError('Не правильное имя домашней работы'):
+        logger.error('Не правильное имя домашней работы')
+
     message = f'Изменился статус проверки работы "{homework_name}". {verdict}'
     return message
 
@@ -115,6 +114,7 @@ def parse_status(homework):
 def main():
     """Основная логика работы бота."""
     if not check_tokens():
+        logger.critical('отсутствуют обязательные данные')
         sys.exit()
 
     bot = telegram.Bot(token=TELEGRAM_TOKEN)

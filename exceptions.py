@@ -3,7 +3,7 @@ class FailedConnection(Exception):
 
 
 class ResponseDataError(Exception):
-    ...
+    pass
 
 
 class WrongStatus(Exception):
@@ -11,8 +11,8 @@ class WrongStatus(Exception):
 
 
 class FormatError(Exception):
-    ...
+    pass
 
 
 class ParsingError(Exception):
-    ...
+    pass
