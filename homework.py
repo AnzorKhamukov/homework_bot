@@ -4,11 +4,12 @@ import requests
 import telegram
 import time
 import sys
+import json
 from http import HTTPStatus
 
 from dotenv import load_dotenv
 
-from exceptions import FormatError, ParsingError, WrongStatus
+from exceptions import FormatError, WrongStatus
 
 load_dotenv()
 
@@ -70,7 +71,7 @@ def get_api_answer(timestamp):
 
     try:
         response = response.json()
-    except FormatError as err:
+    except json.DJSONDecodeError as err:
         logger.error('ошибка формата', err)
         raise FormatError from err
     return response
@@ -78,18 +79,18 @@ def get_api_answer(timestamp):
 
 def check_response(response):
     """Проверяем корректность данных."""
-    try:
-        homeworks = response['homeworks']
-    except KeyError:
-        logger.error('отсутсвтуют ожидаемые ключи')
-
     if type(response) != dict:
         raise TypeError
+    try:
+        if 'homeworks' in response:
+            homeworks = response['homeworks']
+    except KeyError:
+        logger.error('отсутсвтуют ожидаемые ключи')
 
     if type(homeworks) != list:
         logger.error('Получили неверные данные')
         raise TypeError('ошибка в данных')
-    if len(homeworks) == 0:
+    if not homeworks:
         logger.error('Список пуст.')
         raise ValueError('Полученный список пуст')
     return homeworks
@@ -100,13 +101,12 @@ def parse_status(homework):
     try:
         homework_status = homework['status']
         verdict = HOMEWORK_VERDICTS[homework_status]
-    except ParsingError('не удалось получить статус домашней работы'):
+    except KeyError:
         logger.error('не удалось получить статус домашней работы')
     try:
         homework_name = homework['homework_name']
-    except ParsingError('Не правильное имя домашней работы'):
+    except KeyError:
         logger.error('Не правильное имя домашней работы')
-
     message = f'Изменился статус проверки работы "{homework_name}". {verdict}'
     return message
 
